@@ -10,7 +10,7 @@ I am not responsible for any kind of loss/damage occur due to Payse. Please use 
 
 ## Download
 
-[Click here to download Payse](https://github.com/heyanush/Payse/releases/download/v1.0(beta)/PayseSetup.exe)
+[Click here to download Payse](https://github.com/heyanush/Payse/releases/download/v1.1(beta)/PayseSetup.exe)
 
 
 ## Working
@@ -33,6 +33,7 @@ Payse work by monitoring the Email account on which donation messages are receiv
 
 #### Additional Settings
 You can change the settings by click on "Settings" tab.
+
 **Refresh delay** : This is the time interval at which Payse checks for new emails form payment system.
 
 **Reconnect delay** : If the connection breaks, the application can automatically retry for connection after this time interval. You can set this to "Never", in that case Payse stops whenever it encounter an error.
