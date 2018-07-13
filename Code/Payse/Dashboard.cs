@@ -37,7 +37,8 @@ namespace Payse
         const string StreamLabsauthorizationEndpoint = "https://streamlabs.com/api/v1.0/authorize";
         const string StreamLabsTokenEndpoint = "https://streamlabs.com/api/v1.0/token";
 
-        const string FromEmailAddress = "alerts@paytm.com";
+        const string FromEmailAddressForUser = "alerts@paytm.com";
+        const string FromEmailAddressForMerchant = "no-reply@paytm.com";
 
         string StreamLabsAccessToken;
         string StreamLabsRefreshToken;
@@ -284,11 +285,11 @@ namespace Payse
                                 var inbox = client.Inbox;
                                 inbox.Open(FolderAccess.ReadWrite);
 
-                                var query = SearchQuery.DeliveredAfter(SetupDate).And(SearchQuery.SubjectContains("You have received")).And(SearchQuery.FromContains(FromEmailAddress)).And(SearchQuery.NotSeen);
+                                var query = SearchQuery.DeliveredAfter(SetupDate).And(SearchQuery.FromContains(FromEmailAddressForUser).Or(SearchQuery.FromContains(FromEmailAddressForMerchant))).And(SearchQuery.NotSeen);
                                 foreach (var uid in inbox.Search(query))
                                 {
                                     var message = inbox.GetMessage(uid);
-                                    PostDonation(message.Subject);
+                                    PostDonation(((MimeKit.MailboxAddress)message.From[0]).Address, message.Subject);
                                     inbox.AddFlags(uid, MessageFlags.Seen, true);
 
                                     if (bw.CancellationPending)
@@ -338,31 +339,62 @@ namespace Payse
             }
         }
 
-        private int PostDonation(String subject)
+        private int PostDonation(String email_from, String subject)
         {
             string name;
             string amount_inr;
 
-            try
+            if (email_from == FromEmailAddressForUser)
             {
-                int sub_index1 = subject.IndexOf("from ");
-                int sub_index2 = subject.IndexOf("Rs.");
-                int sub_index3 = subject.IndexOf(" from");
+                try
+                {
+                    int sub_index1 = subject.IndexOf("from ");
+                    int sub_index2 = subject.IndexOf("Rs.");
+                    int sub_index3 = subject.IndexOf(" from");
 
-                if (sub_index1 < 0 || sub_index2 < 0 || sub_index3 < 0)
+                    if (sub_index1 < 0 || sub_index2 < 0 || sub_index3 < 0)
+                        return 1;
+
+                    sub_index1 += 5;
+                    sub_index2 += 3;
+                    sub_index3 -= sub_index2;
+
+                    name = subject.Substring(sub_index1);
+                    amount_inr = subject.Substring(sub_index2, sub_index3);
+                }
+                catch (Exception)
+                {
                     return 1;
-
-                sub_index1 += 5;
-                sub_index2 += 3;
-                sub_index3 -= sub_index2;
-
-                name = subject.Substring(sub_index1);
-                amount_inr = subject.Substring(sub_index2, sub_index3);
+                }
             }
-            catch (Exception)
+            else if (email_from == FromEmailAddressForMerchant)
             {
-                return 1;
+                try
+                {
+                    int sub_index1 = subject.IndexOf("by ");
+                    int sub_index2 = subject.IndexOf(" at");
+
+                    int sub_index3 = subject.IndexOf("Rs. ");
+                    int sub_index4 = subject.IndexOf(" paid");
+
+                    if (sub_index1 < 0 || sub_index2 < 0 || sub_index3 < 0 || sub_index4 < 0)
+                        return 1;
+
+                    sub_index1 += 3;
+                    sub_index2 -= sub_index1;
+                    sub_index3 += 4;
+                    sub_index4 -= sub_index3;
+
+                    name = subject.Substring(sub_index1, sub_index2);
+                    amount_inr = subject.Substring(sub_index3, sub_index4);
+                }
+                catch (Exception)
+                {
+                    return 1;
+                }
             }
+            else
+                return 1;
 
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(amount_inr))
                 return 1;
@@ -374,7 +406,7 @@ namespace Payse
             {
                 new KeyValuePair<string, string>("name", name),
                 new KeyValuePair<string, string>("identifier", name + "_payse"),
-                new KeyValuePair<string, string>("message", "Recieved Rs." + amount_inr + " on PayTm"),
+                new KeyValuePair<string, string>("message", "Received Rs." + amount_inr + " on PayTm"),
                 new KeyValuePair<string, string>("amount", amount.ToString("0.##")),
                 new KeyValuePair<string, string>("currency", "USD"),
                 new KeyValuePair<string, string>("access_token", StreamLabsAccessToken)
